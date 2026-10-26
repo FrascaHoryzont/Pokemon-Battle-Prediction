@@ -19,11 +19,19 @@ def create_cv_folds():
         "train": train_indices.tolist(),
         "val": val_indices.tolist()
         }
-    with open("data/processed/cv_folds.json", "w", encoding="utf-8") as f:
+    out_path = Path("data/processed/cv_folds.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(folds, f, indent=4)
     return folds
 
 # Save the folds to a JSON file
 def load_cv_folds(file_path="data/processed/cv_folds.json"):
-    with open(file_path, "r", encoding="utf-8") as f:
+    path = Path(file_path)
+    if not path.exists():
+        return create_cv_folds()
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+if __name__ == "__main__":
+  create_cv_folds()
