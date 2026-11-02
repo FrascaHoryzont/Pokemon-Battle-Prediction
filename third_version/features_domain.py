@@ -1,5 +1,5 @@
 """Domain features based on Generation 2 OverUsed (OU) competitive mechanics:
-- Snorlax factor and standard Gen 2 counters
+- Snorlax presence and health differential
 - Rest recovery vs hostile sleep & sleep clause
 - Spikes hazards, grounded vulnerability, Ghost spinblockers, and stealth dead on entry
 - True physical/special split by Gen 2 type and burn attack reduction
@@ -11,11 +11,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 import data_extr  # noqa: E402
-
-SNORLAX_COUNTERS = {
-    "skarmory", "cloyster", "gengar", "misdreavus", "machamp", "tyranitar",
-    "steelix", "suicune", "rhydon", "miltank", "heracross", "marowak"
-}
 
 GEN2_PHYSICAL_TYPES = {
     "normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel"
@@ -39,10 +34,9 @@ def _is_ghost(battle: dict, side: str, name: str) -> bool:
 
 
 def snorlax_features(battle: dict) -> dict[str, float]:
-    """Snorlax presence, HP, diff, and living counters on each team."""
+    """Snorlax presence, HP, and diff on each team."""
     p1_team = battle["p1_team_details"]
     latest = data_extr.latest_states(battle)
-    alive = data_extr.alive_states(battle)
 
     # P1 Snorlax
     p1_has = 1.0 if any(p["name"] == "snorlax" for p in p1_team) else 0.0
@@ -64,25 +58,12 @@ def snorlax_features(battle: dict) -> dict[str, float]:
         else:
             p2_hp = 1.0
 
-    # Living counters
-    p1_counters = sum(1.0 for s in alive["p1"] if s["name"] in SNORLAX_COUNTERS)
-    # Include P1 unused counters
-    p1_counters += sum(1.0 for p in p1_team if p["name"] not in latest["p1"] and p["name"] in SNORLAX_COUNTERS)
-
-    p2_counters = sum(1.0 for s in alive["p2"] if s["name"] in SNORLAX_COUNTERS)
-    p2_lead_name = battle["p2_lead_details"]["name"]
-    if p2_lead_name in SNORLAX_COUNTERS and p2_lead_name not in latest["p2"]:
-        p2_counters += 1.0
-
     return {
         "p1_has_snorlax": p1_has,
         "p2_has_snorlax": p2_has,
         "snorlax_hp_p1": p1_hp,
         "snorlax_hp_p2": p2_hp,
         "snorlax_hp_diff": p1_hp - p2_hp,
-        "p1_snorlax_counters_alive": p1_counters,
-        "p2_has_snorlax_counter_alive": p2_counters,
-        "snorlax_counter_diff": p1_counters - p2_counters,
     }
 
 
@@ -228,52 +209,7 @@ def physical_special_split_features(battle: dict) -> dict[str, float]:
     }
 
 
-ELECTRIC_SPONGES = {"raikou", "rhydon", "steelix", "snorlax", "blissey", "jolteon", "quagsire", "donphan", "nidoking", "nidoqueen"}
-MAROWAK_WALLS = {"skarmory", "suicune", "cloyster", "starmie", "vaporeon"}
-MACHAMP_CHECKS = {"gengar", "misdreavus", "skarmory", "starmie", "exeggutor", "slowbro"}
-
 PRIMARY_ATTACKING_TYPES = ["electric", "ground", "ice", "water", "fire", "psychic", "normal", "fighting"]
-
-
-def wincon_extinction_features(battle: dict) -> dict[str, float]:
-    """Detects game-ending win conditions where a sweeper is alive and all opposing checks are eliminated."""
-    alive = data_extr.alive_states(battle)
-    latest = data_extr.latest_states(battle)
-    p1_team = battle["p1_team_details"]
-
-    alive_names = {
-        "p1": {s["name"] for s in alive["p1"]} | {p["name"] for p in p1_team if p["name"] not in latest["p1"]},
-        "p2": {s["name"] for s in alive["p2"]}
-    }
-
-    f = {}
-    for side, other in (("p1", "p2"), ("p2", "p1")):
-        # Snorlax uncontested: Snorlax alive, other has no counters
-        snorlax_alive = "snorlax" in alive_names[side]
-        other_snorlax_counters = sum(1 for name in alive_names[other] if name in SNORLAX_COUNTERS)
-        f[f"wincon_{side}_snorlax_free"] = 1.0 if (snorlax_alive and other_snorlax_counters == 0) else 0.0
-
-        # Electric sweeper uncontested (Zapdos/Raikou alive, other has no ground/sponge)
-        electric_alive = ("zapdos" in alive_names[side] or "raikou" in alive_names[side])
-        other_electric_sponges = sum(1 for name in alive_names[other] if name in ELECTRIC_SPONGES)
-        f[f"wincon_{side}_electric_free"] = 1.0 if (electric_alive and other_electric_sponges == 0) else 0.0
-
-        # Marowak uncontested (Marowak alive, other has no Skarmory/Water tank)
-        marowak_alive = "marowak" in alive_names[side]
-        other_marowak_walls = sum(1 for name in alive_names[other] if name in MAROWAK_WALLS)
-        f[f"wincon_{side}_marowak_free"] = 1.0 if (marowak_alive and other_marowak_walls == 0) else 0.0
-
-        # Machamp uncontested
-        machamp_alive = "machamp" in alive_names[side]
-        other_machamp_checks = sum(1 for name in alive_names[other] if name in MACHAMP_CHECKS)
-        f[f"wincon_{side}_machamp_free"] = 1.0 if (machamp_alive and other_machamp_checks == 0) else 0.0
-
-    p1_free_total = (f["wincon_p1_snorlax_free"] + f["wincon_p1_electric_free"] +
-                     f["wincon_p1_marowak_free"] + f["wincon_p1_machamp_free"])
-    p2_free_total = (f["wincon_p2_snorlax_free"] + f["wincon_p2_electric_free"] +
-                     f["wincon_p2_marowak_free"] + f["wincon_p2_machamp_free"])
-    f["wincon_free_diff"] = p1_free_total - p2_free_total
-    return f
 
 
 def defensive_gap_features(battle: dict) -> dict[str, float]:
@@ -343,11 +279,11 @@ def volatile_effects_and_items_features(battle: dict) -> dict[str, float]:
     f["t30_perish_trap_diff"] = p2_ptrap - p1_ptrap
 
     # P1 Held Items
-    p1_thickclub = sum(1.0 for p in p1_team if p.get("name") == "marowak" and p.get("item") == "thickclub")
+    p1_thickclub = sum(1.0 for p in p1_team if p.get("item") == "thickclub")
     p1_berries = sum(1.0 for p in p1_team if p.get("item") in ("miracleberry", "mintberry", "przcureberry"))
     p1_lefties = sum(1.0 for p in p1_team if p.get("item") == "leftovers")
 
-    f["p1_item_marowak_thickclub"] = p1_thickclub
+    f["p1_item_thickclub"] = p1_thickclub
     f["p1_item_status_berries"] = p1_berries
     f["p1_item_leftovers_count"] = p1_lefties
 

@@ -19,16 +19,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 import data_extr  # noqa: E402
 
-KEY_META_SPECIES = [
-    "snorlax", "zapdos", "raikou", "cloyster", "skarmory",
-    "tyranitar", "suicune", "gengar", "machamp", "starmie"
-]
-
-
-def build_team_library(train_battles: list[dict], test_battles: list[dict] = None) -> dict:
-    """Builds an expanded team library and species co-occurrence matrix from all visible P1 teams."""
-    all_battles = train_battles + (test_battles if test_battles else [])
-    counts = Counter(frozenset(p["name"] for p in b["p1_team_details"]) for b in all_battles)
+def build_team_library(train_battles: list[dict], n_top_species: int = 10) -> dict:
+    """Builds team library, co-occurrence matrix, and top meta species strictly from training P1 teams."""
+    counts = Counter(frozenset(p["name"] for p in b["p1_team_details"]) for b in train_battles)
     index = defaultdict(set)
     species_counts = Counter()
 
@@ -36,6 +29,8 @@ def build_team_library(train_battles: list[dict], test_battles: list[dict] = Non
         for name in team:
             index[name].add(team)
             species_counts[name] += counts[team]
+
+    top_species = [sp for sp, _ in species_counts.most_common(n_top_species)]
 
     # Co-occurrence: P(s2 | s1) = count(s1 and s2) / count(s1)
     cooccurrence = defaultdict(dict)
@@ -54,7 +49,8 @@ def build_team_library(train_battles: list[dict], test_battles: list[dict] = Non
         "counts": counts,
         "index": index,
         "species_counts": species_counts,
-        "cooccurrence": cooccurrence
+        "cooccurrence": cooccurrence,
+        "top_species": top_species,
     }
 
 
@@ -62,12 +58,11 @@ _DEFAULT_LIBRARY = None
 
 
 def default_team_library() -> dict:
-    """Builds or returns the shared team library from competition data."""
+    """Builds or returns the shared team library strictly from training data."""
     global _DEFAULT_LIBRARY
     if _DEFAULT_LIBRARY is None:
         train_battles = data_extr.load_battles("train")
-        test_battles = data_extr.load_battles("test")
-        _DEFAULT_LIBRARY = build_team_library(train_battles, test_battles)
+        _DEFAULT_LIBRARY = build_team_library(train_battles)
     return _DEFAULT_LIBRARY
 
 
@@ -129,7 +124,7 @@ def soft_lookup_features(battle: dict, library: dict = None) -> dict[str, float]
     }
 
     # Meta species probabilities for P2
-    for sp in KEY_META_SPECIES:
+    for sp in lib.get("top_species", []):
         if sp in seen:
             f[f"look_p2_prob_{sp}"] = 1.0
         else:
@@ -149,7 +144,7 @@ def p2_full_team_distribution(battle: dict, library: dict = None) -> dict[str, f
     seen = set(data_extr.latest_states(battle)["p2"]) | {battle["p2_lead_details"]["name"]}
     soft_f = soft_lookup_features(battle, lib)
     f = {}
-    for sp in KEY_META_SPECIES:
+    for sp in lib.get("top_species", []):
         f[f"p2_full_prob_{sp}"] = 1.0 if sp in seen else soft_f.get(f"look_p2_prob_{sp}", 0.0)
     return f
 

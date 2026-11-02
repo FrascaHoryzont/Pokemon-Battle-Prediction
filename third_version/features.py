@@ -57,10 +57,8 @@ from third_version.features_domain import (  # noqa: E402
     rest_and_sleep_features,
     snorlax_features,
     volatile_effects_and_items_features,
-    wincon_extinction_features,
 )
 from third_version.features_lookup import (  # noqa: E402
-    KEY_META_SPECIES,
     build_team_library,
     enhanced_detector_features,
     soft_lookup_features,
@@ -93,7 +91,6 @@ def extract_batch_domain_features(battles: list[dict], library: dict) -> pd.Data
         row.update(rest_and_sleep_features(b))
         row.update(advanced_spikes_features(b))
         row.update(physical_special_split_features(b))
-        row.update(wincon_extinction_features(b))
         row.update(defensive_gap_features(b))
         row.update(volatile_effects_and_items_features(b))
 
@@ -116,15 +113,15 @@ def extract_batch_domain_features(battles: list[dict], library: dict) -> pd.Data
 
 
 def build_tables(train_battles: list[dict], test_battles: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Generates the unified, high-accuracy V3 feature matrices for train and test directly from battles."""
-    print("Building expanded 15k team library...")
-    library = build_team_library(train_battles, test_battles)
+    """Generates the unified, high-accuracy V3 feature matrices directly from raw battle data."""
+    print("Building team library strictly from training battles...")
+    library = build_team_library(train_battles)
 
     print("Computing first-version base features...")
     train_first = first_version_table(train_battles)
     test_first = first_version_table(test_battles)
 
-    print("Extracting domain, win conditions, soft lookup, timeline and duel features...")
+    print("Extracting domain, soft lookup, timeline and duel features...")
     train_domain = extract_batch_domain_features(train_battles, library)
     test_domain = extract_batch_domain_features(test_battles, library)
 
@@ -176,5 +173,6 @@ def build_tables(train_battles: list[dict], test_battles: list[dict]) -> tuple[p
 
     test_out = pd.concat([pd.Series(test_id, name="battle_id"), X_test], axis=1)
 
-    print(f"Features assembled: {len(keep_cols)} rich features (V2 granular + V3 domain & wincon)")
+    print(f"Features assembled: {len(keep_cols)} rich features (V2 granular + V3 domain)")
+
     return train_out, test_out
