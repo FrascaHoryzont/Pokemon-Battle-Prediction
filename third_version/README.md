@@ -4,7 +4,7 @@ Result: 68.87% ± 0.77% cross-validated accuracy (5 folds × 3 shuffles) and 69.
 
 Models: 15-fold bagged ensemble averaging soft probabilities of XGBoost (60%, depth 4), LightGBM (30%, 12 leaves), and CatBoost (10%, depth 5) with calibrated decision threshold (0.505).
 
-Features (200 selected from 565 candidates):
+Features (200 selected from 477):
 - The second version's core: base battle state, survivors HP per species, duel features, and P2 hidden roster lookup.
 - Soft P2 reconstruction & enhanced KO detector: 10k training team unsupervised library with continuous Bayesian co-occurrence matrix and self-destruct/Spikes-aware faint detection.
 - Generation 2 OU domain mechanics:
