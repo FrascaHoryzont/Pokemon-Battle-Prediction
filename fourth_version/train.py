@@ -1,8 +1,9 @@
 """Train Version 4: Stacking Ensemble with Logistic Regression Meta-Learner.
 
 Pipeline:
-1. Feature matrix assembly (565 rich Gen 2 domain, soft lookup, timeline & granular features)
-2. Noise reduction: Top 200 most discriminative features selected via gradient boosting gain
+1. Feature matrix assembly, reused from the third version (565 rich Gen 2 domain, soft lookup, timeline & granular features)
+2. Noise reduction: Top 200 most discriminative features selected via gradient boosting gain,
+   chosen inside each fold from its training battles only
 3. Level 0 Base Models across 15 folds (5-fold x 3 repeats):
    - XGBoost: depth-wise splitting with quantile regularization
    - LightGBM: leaf-wise histogram tree boosting
@@ -36,7 +37,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import data_extr  # noqa: E402
-from fourth_version.features import build_tables  # noqa: E402
+from third_version.features import build_tables  # noqa: E402
 
 SEED = 42
 N_TOP_FEATURES = 200
@@ -56,12 +57,7 @@ def select_top_features(X_train: pd.DataFrame, y_train: pd.Series, n_top: int = 
 
 def train_and_evaluate(X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
     """Executes 15-fold cross-validation with Level 0 OOF tracking and Level 1 Logistic Meta-Learner."""
-    print(f"\nSelecting top {N_TOP_FEATURES} features from {X.shape[1]} candidates (pruning noise)...")
-    selected_cols = select_top_features(X, y, n_top=N_TOP_FEATURES)
-    print(f"Top 5 selected features: {', '.join(selected_cols[:5])}")
-
-    X_sel = X[selected_cols]
-    X_test_sel = X_test[selected_cols]
+    print(f"\nSelecting top {N_TOP_FEATURES} of {X.shape[1]} features inside each fold (pruning noise)...")
 
     cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=SEED)
     n_folds = cv.get_n_splits()
@@ -77,9 +73,12 @@ def train_and_evaluate(X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
 
     print(f"\n[Level 0] Training 3 Base Models (XGBoost, LightGBM, CatBoost) across {n_folds} folds...")
 
-    for fold, (trn_idx, val_idx) in enumerate(cv.split(X_sel, y)):
-        X_tr, y_tr = X_sel.iloc[trn_idx], y.iloc[trn_idx]
-        X_va, y_va = X_sel.iloc[val_idx], y.iloc[val_idx]
+    for fold, (trn_idx, val_idx) in enumerate(cv.split(X, y)):
+        # Features are chosen from this fold's training battles only, so the validation battles stay unseen
+        selected_cols = select_top_features(X.iloc[trn_idx], y.iloc[trn_idx], n_top=N_TOP_FEATURES)
+        X_tr, y_tr = X.iloc[trn_idx][selected_cols], y.iloc[trn_idx]
+        X_va, y_va = X.iloc[val_idx][selected_cols], y.iloc[val_idx]
+        X_test_sel = X_test[selected_cols]
 
         # 1. XGBoost
         xgb = XGBClassifier(
