@@ -12,14 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 import data_extr  # noqa: E402
 
-GEN2_PHYSICAL_TYPES = {
-    "normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel"
-}
-
-GEN2_SPECIAL_TYPES = {
-    "fire", "water", "grass", "electric", "psychic", "ice", "dragon", "dark"
-}
-
 HOSTILE_SLEEP_MOVES = {"lovelykiss", "spore", "hypnosis", "sleeppowder", "sing"}
 
 
@@ -70,7 +62,6 @@ def snorlax_features(battle: dict) -> dict[str, float]:
 def rest_and_sleep_features(battle: dict) -> dict[str, float]:
     """Distinguishes healthy Rest recovery from debilitating hostile sleep."""
     timeline = battle["battle_timeline"]
-    latest = data_extr.latest_states(battle)
     alive = data_extr.alive_states(battle)
 
     # Track which Pokémon used Rest during the timeline

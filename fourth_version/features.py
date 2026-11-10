@@ -26,7 +26,6 @@ Combines:
 """
 
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -36,15 +35,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-import data_extr  # noqa: E402
 from first_version.features import build_table as first_version_table  # noqa: E402
 from second_version.features import (  # noqa: E402
-    MIN_BATTLES,
-    _details,
     _indicator_tables,
-    _p2_lookup,
-    _shown_moves,
-    _survivor_hp,
     duel_features,
     p2_full_team,
     species_hp,
