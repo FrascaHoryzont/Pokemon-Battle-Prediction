@@ -2,6 +2,8 @@
 
 Result: 68.87% ± 0.77% cross-validated accuracy (5 folds × 3 shuffles) and 69.04% aggregated OOF accuracy, up from 68.64% for the second version.
 
+Selecting the 200 features inside each training fold instead gives 68.54% ± 0.73%.
+
 Models: 15-fold bagged ensemble averaging soft probabilities of XGBoost (60%, depth 4), LightGBM (30%, 12 leaves), and CatBoost (10%, depth 5) with calibrated decision threshold (0.505).
 
 Features (200 selected from 477):

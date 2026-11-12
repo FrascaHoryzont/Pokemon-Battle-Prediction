@@ -2,6 +2,8 @@
 
 Result: 69.11% ± 0.78% cross-validated accuracy (5 folds × 3 shuffles) and 69.11% aggregated OOF accuracy.
 
+Selecting the 200 features inside each training fold instead gives 68.55% ± 0.72%.
+
 Models: Two-level Stacking Ensemble.
 - Level 0 (Base Models): 15-fold bagged ensemble of XGBoost, LightGBM, and CatBoost.
 - Level 1 (Meta-Learner): L2-regularized Logistic Regression trained on Out-Of-Fold (OOF) predicted probabilities from Level 0.
